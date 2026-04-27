@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS TutorialStepEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    excelId TEXT NOT NULL,
+    stepOrder INTEGER NOT NULL,
+    instruction TEXT NOT NULL,
+    durationMinutes INTEGER,
+    FOREIGN KEY(excelId) REFERENCES ExcelEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_step_excel ON TutorialStepEntity(excelId);
+
+selectByExcel:
+SELECT * FROM TutorialStepEntity WHERE excelId = :excelId ORDER BY stepOrder ASC;
+
+insertStep:
+INSERT INTO TutorialStepEntity(excelId, stepOrder, instruction, durationMinutes)
+VALUES (?, ?, ?, ?);
+
+deleteByExcel:
+DELETE FROM TutorialStepEntity WHERE excelId = :excelId;

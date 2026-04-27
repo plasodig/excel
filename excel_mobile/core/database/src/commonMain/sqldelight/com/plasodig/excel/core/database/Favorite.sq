@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS FavoriteEntity (
+    excelId TEXT NOT NULL PRIMARY KEY,
+    addedAtEpoch INTEGER NOT NULL
+);
+
+selectAll:
+SELECT excelId FROM FavoriteEntity ORDER BY addedAtEpoch DESC;
+
+isFavorite:
+SELECT COUNT(*) > 0 FROM FavoriteEntity WHERE excelId = :excelId;
+
+addFavorite:
+INSERT OR REPLACE INTO FavoriteEntity(excelId, addedAtEpoch) VALUES (?, ?);
+
+removeFavorite:
+DELETE FROM FavoriteEntity WHERE excelId = :excelId;

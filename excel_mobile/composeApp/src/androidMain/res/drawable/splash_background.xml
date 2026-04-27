@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Splash background: white layer + icon tutorial di tengah (ukuran 160dp).
+  Dipakai oleh Theme.Excel.Splash sebagai `android:windowBackground`.
+  Aktif di semua API level — Android 12+ otomatis honor ini sebagai splash.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@android:color/white" />
+    <item
+        android:width="160dp"
+        android:height="160dp"
+        android:drawable="@drawable/ic_launcher"
+        android:gravity="center" />
+</layer-list>

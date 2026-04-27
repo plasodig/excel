@@ -1,0 +1,44 @@
+// Entry point Cloudflare Worker.
+// Routing:
+//   /api/*              → public (mobile app), tanpa auth
+//   /login, /logout     → auth
+//   /                   → admin dashboard (perlu auth)
+//   /excels/:id        → admin detail (perlu auth)
+
+import { Hono } from "hono";
+import { logger } from "hono/logger";
+import { requireAuth } from "./middleware/auth";
+import { adminRoutes } from "./routes/admin";
+import { authRoutes } from "./routes/auth";
+import { publicRoutes } from "./routes/public";
+import type { Bindings } from "./types";
+
+import { autoProcessDrafts } from "./service/autobot";
+
+const app = new Hono<{ Bindings: Bindings }>();
+
+app.use("*", logger());
+
+// Public routes (landing page, API, images) — no auth
+app.route("/", publicRoutes);
+
+// Auth routes (/login, /logout)
+app.route("/", authRoutes);
+
+// Admin dashboard — requires auth, mounted under /admin
+app.use("/admin/*", requireAuth);
+app.route("/admin", adminRoutes);
+
+app.notFound((c) => c.text("Not found", 404));
+app.onError((err, c) => {
+  console.error("Unhandled error:", err);
+  return c.text(`Error: ${err.message}`, 500);
+});
+
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: any, env: Bindings, ctx: any) {
+    console.log("🔔 CRON TRIGGERED at " + new Date().toISOString());
+    ctx.waitUntil(autoProcessDrafts(env));
+  },
+};

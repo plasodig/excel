@@ -1,0 +1,200 @@
+import { Hono } from "hono";
+import {
+  getExcelFull,
+  listAllRequests,
+  listRecentReports,
+  listExcels,
+  saveGeneratedContent,
+  setImageKey,
+  setStatus,
+  syncExcels,
+  updateMeta,
+} from "../db";
+import { generateImage, generateExcel } from "../ai/client";
+import { PoolIterator, getAccountPool, QuotaExhaustedError } from "../ai/pool";
+import { uploadExcelImage } from "../storage/kv";
+import type { Bindings, Category } from "../types";
+import { dashboardView } from "../views/dashboard";
+import { detailView } from "../views/detail";
+import { reportsView } from "../views/reports";
+import { requestsView } from "../views/requests";
+
+export const adminRoutes = new Hono<{ Bindings: Bindings }>();
+
+import { autoProcessDrafts } from "../service/autobot";
+
+adminRoutes.get("/", async (c) => {
+  const rows = await listExcels(c.env.DB);
+  const flash = readFlash(c.req.query("ok"), c.req.query("err"));
+  return c.html(dashboardView(rows, flash));
+});
+
+adminRoutes.post("/sync", async (c) => {
+  try {
+    const res = await fetch(c.env.TUTORIALS_SYNC_URL);
+    if (!res.ok) throw new Error(`GAS returned ${res.status}`);
+    const data = await res.json() as any[];
+    const result = await syncExcels(c.env.DB, data);
+    return c.redirect(`/admin?ok=${encodeURIComponent(`Sync berhasil: ${result.added} tutorial baru ditambahkan.`)}`);
+  } catch (e) {
+    return c.redirect(`/admin?err=${encodeURIComponent(errMsg("Sync gagal", e))}`);
+  }
+});
+
+adminRoutes.post("/autobot/run", async (c) => {
+  // Jalankan di background supaya browser bisa langsung di-close
+  c.executionCtx.waitUntil(autoProcessDrafts(c.env));
+  return c.redirect("/admin?ok=" + encodeURIComponent("Autobot dijalankan di background server. Proses akan berjalan otomatis."));
+});
+
+adminRoutes.get("/excels/:id", async (c) => {
+  const id = c.req.param("id");
+  const full = await getExcelFull(c.env.DB, id, "");
+  if (!full) return c.notFound();
+  const flash = readFlash(c.req.query("ok"), c.req.query("err"));
+  return c.html(detailView(full, flash));
+});
+
+adminRoutes.post("/excels/:id/update", async (c) => {
+  const id = c.req.param("id");
+  const form = await c.req.parseBody();
+  await updateMeta(c.env.DB, id, {
+    title: str(form.title),
+    category: str(form.category) as Category,
+    description: str(form.description),
+    difficulty: str(form.difficulty),
+    cookingTimeMinutes: int(form.cooking_time_minutes, 30),
+    servings: int(form.servings, 4),
+    tagsCsv: normalizeTags(str(form.tags_csv)),
+  });
+  return c.redirect(`/admin/excels/${id}?ok=${encodeURIComponent("Metadata disimpan.")}`);
+});
+
+adminRoutes.post("/excels/:id/generate-text", async (c) => {
+  const id = c.req.param("id");
+  const full = await getExcelFull(c.env.DB, id, "");
+  if (!full) return c.notFound();
+  try {
+    const slots = await getAccountPool(c.env.IMAGES, c.env.AI_POOL_URL, c.env.ACCOUNT_POOL_JSON);
+    const pool = new PoolIterator(slots);
+    const content = await generateExcel(pool, full.excel.title, full.excel.category);
+    await saveGeneratedContent(c.env.DB, id, content);
+    return c.redirect(`/admin/excels/${id}?ok=${encodeURIComponent("Teks tutorial berhasil di-generate.")}`);
+  } catch (e) {
+    return c.redirect(`/admin/excels/${id}?err=${encodeURIComponent(errMsg("Generate teks gagal", e))}`);
+  }
+});
+
+adminRoutes.post("/excels/:id/generate-image", async (c) => {
+  const id = c.req.param("id");
+  const full = await getExcelFull(c.env.DB, id, "");
+  if (!full) return c.notFound();
+  try {
+    const slots = await getAccountPool(c.env.IMAGES, c.env.AI_POOL_URL, c.env.ACCOUNT_POOL_JSON);
+    const pool = new PoolIterator(slots);
+    const image = await generateImage(pool, full.excel.title, full.excel.category);
+    const key = await uploadExcelImage(c.env.IMAGES, id, image);
+    await setImageKey(c.env.DB, id, key);
+    return c.redirect(`/admin/excels/${id}?ok=${encodeURIComponent("Gambar berhasil di-generate.")}`);
+  } catch (e) {
+    return c.redirect(`/admin/excels/${id}?err=${encodeURIComponent(errMsg("Generate gambar gagal", e))}`);
+  }
+});
+
+adminRoutes.post("/excels/:id/generate-all", async (c) => {
+  const id = c.req.param("id");
+  const full = await getExcelFull(c.env.DB, id, "");
+  if (!full) return c.notFound();
+  const errors: string[] = [];
+  // Pakai 2 PoolIterator terpisah supaya kegagalan teks tidak mempengaruhi rotasi gambar.
+  const pool = await getAccountPool(c.env.IMAGES, c.env.AI_POOL_URL, c.env.ACCOUNT_POOL_JSON);
+
+  // Jalankan paralel — sama persis dengan strategi runtime AI lama di Kotlin.
+  const [textResult, imageResult] = await Promise.allSettled([
+    (async () => {
+      const content = await generateExcel(new PoolIterator(pool), full.excel.title, full.excel.category);
+      await saveGeneratedContent(c.env.DB, id, content);
+    })(),
+    (async () => {
+      const image = await generateImage(new PoolIterator(pool), full.excel.title, full.excel.category);
+      const key = await uploadExcelImage(c.env.IMAGES, id, image);
+      await setImageKey(c.env.DB, id, key);
+    })(),
+  ]);
+
+  if (textResult.status === "rejected") errors.push(errMsg("teks", textResult.reason));
+  if (imageResult.status === "rejected") errors.push(errMsg("gambar", imageResult.reason));
+
+  const isJson = c.req.header("Accept")?.includes("application/json");
+
+  if (errors.length > 0) {
+    if (isJson) return c.json({ success: false, error: errors.join(" | ") }, 500);
+    return c.redirect(`/admin/excels/${id}?err=${encodeURIComponent(errors.join(" | "))}`);
+  }
+
+  // Otomatis publish jika sukses
+  await setStatus(c.env.DB, id, "published");
+  if (isJson) return c.json({ success: true, status: "published" });
+  return c.redirect(`/admin?ok=${encodeURIComponent(`Teks + gambar untuk ${full.excel.title} selesai di-generate dan otomatis di-publish.`)}`);
+});
+
+adminRoutes.post("/excels/:id/publish", async (c) => {
+  const id = c.req.param("id");
+  await setStatus(c.env.DB, id, "published");
+  return c.redirect(`/admin/excels/${id}?ok=${encodeURIComponent("Tutorial di-publish.")}`);
+});
+
+adminRoutes.post("/excels/:id/unpublish", async (c) => {
+  const id = c.req.param("id");
+  await setStatus(c.env.DB, id, "generated");
+  return c.redirect(`/admin/excels/${id}?ok=${encodeURIComponent("Tutorial di-unpublish.")}`);
+});
+
+// ---- Monitoring auto-generate requests (tanpa moderasi) --------------------
+
+adminRoutes.get("/requests", async (c) => {
+  const rows = await listAllRequests(c.env.DB, 100);
+  const flash = readFlash(c.req.query("ok"), c.req.query("err"));
+  return c.html(requestsView(rows, flash));
+});
+
+// ---- Laporan user dari mobile app -----------------------------------------
+
+adminRoutes.get("/reports", async (c) => {
+  const rows = await listRecentReports(c.env.DB, 100);
+  const flash = readFlash(c.req.query("ok"), c.req.query("err"));
+  return c.html(reportsView(rows, flash));
+});
+
+// ---- helpers ---------------------------------------------------------------
+
+function readFlash(ok?: string, err?: string): { kind: "ok" | "error"; msg: string } | undefined {
+  if (err) return { kind: "error", msg: err };
+  if (ok) return { kind: "ok", msg: ok };
+  return undefined;
+}
+
+function str(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
+function int(v: unknown, fallback: number): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.floor(n) : fallback;
+}
+
+function normalizeTags(s: string): string {
+  return s
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+    .join(",");
+}
+
+function errMsg(prefix: string, e: unknown): string {
+  if (e instanceof QuotaExhaustedError) {
+    return `${prefix}: semua slot Cloudflare AI gagal di attempt ini`;
+  }
+  if (e instanceof Error) return `${prefix}: ${e.message}`;
+  return `${prefix}: error tidak dikenal`;
+}

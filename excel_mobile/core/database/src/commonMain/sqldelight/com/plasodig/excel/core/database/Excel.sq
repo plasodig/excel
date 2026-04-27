@@ -1,0 +1,57 @@
+CREATE TABLE IF NOT EXISTS ExcelEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    imageUrl TEXT NOT NULL,
+    category TEXT NOT NULL,
+    difficulty TEXT NOT NULL,
+    cookingTimeMinutes INTEGER NOT NULL,
+    servings INTEGER NOT NULL,
+    tags TEXT NOT NULL DEFAULT '',
+    updatedAtEpoch INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_excel_category ON ExcelEntity(category);
+CREATE INDEX IF NOT EXISTS idx_excel_title ON ExcelEntity(title);
+
+selectAll:
+SELECT * FROM ExcelEntity ORDER BY title ASC;
+
+selectByCategory:
+SELECT * FROM ExcelEntity WHERE category = :category ORDER BY title ASC;
+
+selectTop:
+SELECT * FROM ExcelEntity ORDER BY title ASC LIMIT :max;
+
+selectTopByCategory:
+SELECT * FROM ExcelEntity WHERE category = :category ORDER BY title ASC LIMIT :max;
+
+selectById:
+SELECT * FROM ExcelEntity WHERE id = :id;
+
+searchByTitle:
+SELECT * FROM ExcelEntity
+WHERE title LIKE '%' || :query || '%'
+   OR description LIKE '%' || :query || '%'
+ORDER BY title ASC;
+
+upsert:
+INSERT OR REPLACE INTO ExcelEntity(
+    id, title, description, imageUrl, category, difficulty,
+    cookingTimeMinutes, servings, tags, updatedAtEpoch
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateImageUrl:
+UPDATE ExcelEntity SET imageUrl = :imageUrl, updatedAtEpoch = :updatedAt WHERE id = :id;
+
+updateTitleCategory:
+UPDATE ExcelEntity SET title = :title, category = :category, updatedAtEpoch = :updatedAt WHERE id = :id;
+
+deleteById:
+DELETE FROM ExcelEntity WHERE id = :id;
+
+deleteAll:
+DELETE FROM ExcelEntity;
+
+countAll:
+SELECT COUNT(*) FROM ExcelEntity;

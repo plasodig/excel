@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS RelatedFunctionEntity (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    excelId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    quantity TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    groupName TEXT,
+    orderIndex INTEGER NOT NULL,
+    FOREIGN KEY(excelId) REFERENCES ExcelEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_related_function_excel ON RelatedFunctionEntity(excelId);
+
+selectByExcel:
+SELECT * FROM RelatedFunctionEntity WHERE excelId = :excelId ORDER BY orderIndex ASC;
+
+insertRelatedFunction:
+INSERT INTO RelatedFunctionEntity(excelId, name, quantity, unit, groupName, orderIndex)
+VALUES (?, ?, ?, ?, ?, ?);
+
+deleteByExcel:
+DELETE FROM RelatedFunctionEntity WHERE excelId = :excelId;

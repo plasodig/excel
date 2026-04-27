@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Excel" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+      Splash theme — dipakai MainActivity di manifest. Tampil selama Application onCreate
+      + Compose first frame. Layer-list drawable kasih white background + icon di tengah.
+
+      Android 12+ (API 31) punya SplashScreen API tersendiri yang baca:
+        windowSplashScreenBackground    — warna background
+        windowSplashScreenAnimatedIcon  — icon drawable
+      Kalau properti ini di-set, SplashScreen API akan pakai mereka (lebih konsisten di
+      Android 12+). Di <31, fallback ke windowBackground.
+    -->
+    <style name="Theme.Excel.Splash" parent="Theme.Excel">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowSplashScreenBackground" tools:targetApi="31">@android:color/white</item>
+        <item name="android:windowSplashScreenAnimatedIcon" tools:targetApi="31">@drawable/ic_launcher</item>
+    </style>
+</resources>

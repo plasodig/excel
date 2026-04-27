@@ -1,0 +1,33 @@
+name = "excel-dashboard"
+main = "src/index.ts"
+compatibility_date = "2024-12-18"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[triggers]
+crons = ["0 * * * *"] # Run every hour
+
+[[routes]]
+pattern = "excel.plasodig.my.id"
+custom_domain = true
+
+# WAJIB DI-REPLACE sebelum deploy:
+#   1. Buat D1 baru:        wrangler d1 create excel-db
+#   2. Copy `database_id` dari output ke baris di bawah
+#   3. Buat KV namespace:   wrangler kv namespace create IMAGES
+#   4. Copy `id` dari output ke kv_namespaces di bawah
+# Kalau dibiarkan TODO, deploy akan gagal — itu disengaja supaya tidak nabrak DB project lain.
+[[d1_databases]]
+binding = "DB"
+database_name = "excel-db"
+database_id = "TODO_GENERATE_NEW_D1_ID"
+
+[[kv_namespaces]]
+binding = "IMAGES"
+id = "TODO_GENERATE_NEW_KV_ID"
+
+[vars]
+# AI_POOL_URL boleh tetap pakai pool akun yang sama (multi-tenant cara hemat).
+AI_POOL_URL = "https://script.google.com/macros/s/AKfycbz-vqpDypJmXQwNSCkyjsa3wTjEnWaWxOURJLLAaZZA99dy8hD_kxxJ963kVuoks0Xi/exec"
+# Apps Script khusus konten Excel — buat baru, jangan pakai endpoint dari project lain.
+TUTORIALS_SYNC_URL = "https://script.google.com/macros/s/AKfycbybySthelszS7gAyGcFEfMRmP5uYC-ExtorHkoPdqxfMUXqFcHG5lChCURq7G4jkGMikg/exec"

@@ -1,0 +1,21 @@
+{
+  "name": "excel-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dashboard admin untuk pre-generate tutorial & gambar via Cloudflare Workers AI. Publish hasilnya ke endpoint publik untuk dikonsumsi mobile app.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:init:local": "wrangler d1 execute tutorial-db --local --file=./schema.sql && wrangler d1 execute tutorial-db --local --file=./seeds/seed.sql",
+    "db:init:remote": "wrangler d1 execute tutorial-db --remote --file=./schema.sql && wrangler d1 execute tutorial-db --remote --file=./seeds/seed.sql",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.6.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241218.0",
+    "typescript": "^5.7.2",
+    "wrangler": "^4.84.1"
+  }
+}
