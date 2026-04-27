@@ -17,6 +17,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -208,6 +209,7 @@ data class ExcelDetailDto(
     val servings: Int = 0,
     val tags: List<String> = emptyList(),
     val imageUrl: String? = null,
+    @SerialName("ingredients")
     val relatedFunctions: List<RelatedFunctionDto> = emptyList(),
     val steps: List<StepDto> = emptyList(),
     val publishedAt: Long? = null,

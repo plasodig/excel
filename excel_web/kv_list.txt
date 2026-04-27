@@ -1,0 +1,12 @@
+[
+  {
+    "id": "cf619e42b4474a4e8dd1abdb92f2d270",
+    "title": "IMAGES",
+    "supports_url_encoding": true
+  },
+  {
+    "id": "cad24389814c4ff4856453338c2fde57",
+    "title": "IMAGES_KV",
+    "supports_url_encoding": true
+  }
+]

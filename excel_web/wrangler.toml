@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
 [triggers]
-crons = ["0 * * * *"] # Run every hour
+crons = ["*/5 * * * *"] # Run every 5 minutes
 
 [[routes]]
 pattern = "excel.plasodig.my.id"
@@ -20,11 +20,11 @@ custom_domain = true
 [[d1_databases]]
 binding = "DB"
 database_name = "excel-db"
-database_id = "TODO_GENERATE_NEW_D1_ID"
+database_id = "3fbd45a8-3bf7-4fd5-8a16-f166f40a0746"
 
 [[kv_namespaces]]
 binding = "IMAGES"
-id = "TODO_GENERATE_NEW_KV_ID"
+id = "cf619e42b4474a4e8dd1abdb92f2d270"
 
 [vars]
 # AI_POOL_URL boleh tetap pakai pool akun yang sama (multi-tenant cara hemat).
